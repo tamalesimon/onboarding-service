@@ -82,7 +82,7 @@ public class OnboardingService {
         createTenantSchema(request.getTenantId());
 
         // 5. Trigger other actions, e.g., billing service and notification to notify the tenant that provision is completed call
-        // billingService.registerTenant(request.getTenantId());
+        // through publishing an event which will be consumed;
 
         OnboardingEvent event = new OnboardingEvent();
         event.setTenantId(request.getTenantId());
@@ -119,35 +119,6 @@ public class OnboardingService {
     }
 
     private void applyKafkaQuota(String tenantId){
-//        String clientId = "tenant_"+tenantId;
-//        ConfigResource configResource = new ConfigResource(ConfigResource.Type.CLIENT_METRICS, clientId);
-//
-//        // Set production quotas (adjust values as needed)
-//        ConfigEntry producerQuota = new ConfigEntry("producer_byte_rate", "10485760");
-//        ConfigEntry consumerQuota = new ConfigEntry("consumer_byte_rate", "20971520");
-//
-//        // Create the Kafka AdminClient instance
-//
-//        // Applying the quota
-//        try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
-//            //Create a list of the config operations
-//            Collection<AlterConfigOp> options = new ArrayList<>();
-//            options.add(new AlterConfigOp(producerQuota, AlterConfigOp.OpType.SET));
-//            options.add(new AlterConfigOp(consumerQuota, AlterConfigOp.OpType.SET));
-//
-//            // Create the map with the single ConfigResource and the collection of operations
-//            Map<ConfigResource, Collection<AlterConfigOp>> configMap = new HashMap<>();
-//            //Collections.singletonMap(configResource, options);
-//
-//            configMap.put(configResource, options);
-//
-//            // Let's apply alterConfigs with the correctly formated map
-//            adminClient.incrementalAlterConfigs(configMap).all().get();
-//            log.info("Applied Kafka quotas for client ID: {}", clientId);
-//        } catch (InterruptedException | ExecutionException e) {
-//            log.error("Failed to apply Kafka quotas for tenant {}: {}", tenantId, e.getMessage());
-//            throw new RuntimeException("Kafka quota application failed.", e);
-//        }
         try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
             String clientId = "tenant_" + tenantId;
             ClientQuotaAlteration alteration = getAlteration(clientId);
