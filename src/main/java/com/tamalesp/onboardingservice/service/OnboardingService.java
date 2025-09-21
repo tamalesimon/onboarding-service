@@ -43,11 +43,11 @@ public class OnboardingService {
     }
 
     @Transactional
-    public void provisionTenant(OnboardingRequest request) {
+    public boolean provisionTenant(OnboardingRequest request) {
         // 1. Check for idempotency: if tenant already exists, do nothing
         if(tenantRepository.findByTenantId(request.getTenantId()).isPresent()){
             log.info("Tenant {} already exists", request.getTenantId());
-            return;
+            return false;
         }
         Instant provisionTime = Instant.now();
 
@@ -66,7 +66,7 @@ public class OnboardingService {
             log.warn("Race conditioning detected on Tenant {}", request.getTenantId());
             if(tenantRepository.findByTenantId(request.getTenantId()).isPresent()) {
                 // Another thread may have just created it. Handle gracefully.
-                return;
+                return false;
             }
             throw new RuntimeException("Failed to save the tenant. ",e);
         }
@@ -98,6 +98,8 @@ public class OnboardingService {
             log.error("Failed to serialize OnboardingEvent", e);
             throw new RuntimeException("Failed to serialize onboarding event", e);
         }
+
+        return true;
     }
 
     public void createTenantSchema(String tenantId){

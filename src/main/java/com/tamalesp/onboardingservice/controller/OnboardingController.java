@@ -28,19 +28,33 @@ public class OnboardingController {
     @PostMapping("/onboard")
     public ResponseEntity<OnboardingResponse> onboardTenant(@Valid @RequestBody OnboardingRequest request) {
         try {
-            onboardingService.provisionTenant(request);
+            boolean provisioned = onboardingService.provisionTenant(request);
+
+            String message;
+            HttpStatus status;
+
+            if(provisioned) {
+              message = "Tenant was provisioned successfully";
+              status = HttpStatus.CREATED;
+            } else{
+                message = "Tenant already exists";
+                status = HttpStatus.CONFLICT;
+            }
+
+//            onboardingService.provisionTenant(request);
             OnboardingResponse response = OnboardingResponse.builder()
                     .tenantId(request.getTenantId())
-                    .status("Success")
-                    .message("The Tenant was provisioned successfully.")
+                    .status(status.getReasonPhrase())
+                    .message(message)
                     .provisionedAt(Instant.now())
                     .build();
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
+
+            return new ResponseEntity<>(response, status);
         } catch (Exception e) {
             log.error("Failed to onboard tenant.", e);
             OnboardingResponse responseFailure = OnboardingResponse.builder()
                     .tenantId(request.getTenantId())
-                    .status("Failure")
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
                     .message("Failed to provision tenant: " + e.getMessage())
                     .build();
 
