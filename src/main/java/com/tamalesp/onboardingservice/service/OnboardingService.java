@@ -111,7 +111,7 @@ public class OnboardingService {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .schemas(schemaName)
-                .locations("classpath:db/migration/tenant")
+                .locations("classpath:db/migration")
                 .load();
 
         flyway.migrate();
