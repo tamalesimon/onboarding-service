@@ -86,7 +86,7 @@ public class OnboardingService {
         String topicName = "logs."+ request.getTenantId();
         NewTopic newKafkaTopic = new NewTopic(topicName, 3, (short) 1);
         kafkaAdmin.createOrModifyTopics(newKafkaTopic);
-//        applyKafkaQuota((request.getTenantId()));
+        applyKafkaQuota((request.getTenantId()));
 
         // 4. Provision PostgresSQL schema (Not directly supported by JPA, requires a separate JDBC call)
 
