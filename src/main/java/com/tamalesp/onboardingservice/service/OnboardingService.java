@@ -2,6 +2,7 @@ package com.tamalesp.onboardingservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tamalesp.onboardingservice.kafka.NotificationProducer;
 import com.tamalesp.onboardingservice.model.OnboardingEvent;
 import com.tamalesp.onboardingservice.model.OnboardingRequest;
 import com.tamalesp.onboardingservice.model.Tenant;
@@ -32,14 +33,18 @@ public class OnboardingService {
     private final DataSource dataSource;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final NotificationProducer notificationProducer;
+    private final SchemaInitializationService schemaInitializationService;
 
 
-    public OnboardingService(TenantRepository tenantRepository, KafkaAdmin kafkaAdmin, DataSource dataSource, KafkaTemplate<String, Object> kafkaTemplate, ObjectMapper objectMapper) {
+    public OnboardingService(TenantRepository tenantRepository, KafkaAdmin kafkaAdmin, DataSource dataSource, KafkaTemplate<String, Object> kafkaTemplate, ObjectMapper objectMapper, NotificationProducer notificationProducer,  SchemaInitializationService schemaInitializationService) {
         this.tenantRepository = tenantRepository;
         this.kafkaAdmin = kafkaAdmin;
         this.dataSource = dataSource;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.notificationProducer = notificationProducer;
+        this.schemaInitializationService = schemaInitializationService;
     }
 
     @Transactional
@@ -71,15 +76,20 @@ public class OnboardingService {
             throw new RuntimeException("Failed to save the tenant. ",e);
         }
 
+        // Provision PostgresSQL schema using Flyway
+        // Administrative task
+        log.info("reached the schema level");
+        schemaInitializationService.initializeTenantSchema((request.getTenantId()));
+
+
         // 3. Provision Kafka topic
         String topicName = "logs."+ request.getTenantId();
         NewTopic newKafkaTopic = new NewTopic(topicName, 3, (short) 1);
         kafkaAdmin.createOrModifyTopics(newKafkaTopic);
-        applyKafkaQuota((request.getTenantId()));
+//        applyKafkaQuota((request.getTenantId()));
 
         // 4. Provision PostgresSQL schema (Not directly supported by JPA, requires a separate JDBC call)
-        // Provision PostgresSQL schema using Flyway
-        createTenantSchema(request.getTenantId());
+
 
         // 5. Trigger other actions, e.g., billing service and notification to notify the tenant that provision is completed call
         // through publishing an event which will be consumed;
@@ -94,9 +104,10 @@ public class OnboardingService {
             String jsonEvent = objectMapper.writeValueAsString(event);
             kafkaTemplate.send("tenant-onboarding-events", request.getTenantId(), jsonEvent);
             log.info("Published onboarding event for tenant {}", request.getTenantId());
+            notificationProducer.sendSuccessOnboardingNotification(request.getContactEmail(), request.getTenantId());
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize OnboardingEvent", e);
-            throw new RuntimeException("Failed to serialize onboarding event", e);
+            log.error("Failed to serialize OnboardingEvent: {}", e.getMessage());
+            throw new RuntimeException("Failed to serialize onboarding event ", e.getCause());
         }
 
         return true;
@@ -111,7 +122,7 @@ public class OnboardingService {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .schemas(schemaName)
-                .locations("classpath:db/migration")
+                .locations("classpath:db/tenant")
                 .load();
 
         flyway.migrate();

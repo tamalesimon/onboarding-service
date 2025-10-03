@@ -12,8 +12,13 @@ spring:
     show-sql: true
   kafka:
     bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   flyway:
     baseline-on-migrate: true
+#    location: classpath:db/tenant
+    ignore-missing-migrations: true
 
   security:
     oauth2:
